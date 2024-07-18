@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch API 예제</title>
+    <style>
+        .tryItItem {
+            vertical-align: top;
+            display: inline-block;
+        }
+
+        button {
+            width: 100px;
+            height: 40px;
+            background-color: rgb(127, 127, 153);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-right: 30px;
+        }
+        .container {
+            display: grid;
+            grid-template-rows: 0.8fr 4fr 0.6fr;
+            justify-items: center;
+            column-gap: 40px;
+            background-color: darkgray;
+            border-radius: 10px;
+        }
+        .body {
+            display: grid;
+            grid-template-columns: 400px;
+        }
+        .board {
+            display: flex;
+            justify-content: center;
+            flex-wrap: nowrap;
+            margin: 10px;
+        }
+        .item {
+            flex-basis: 300px;
+            margin-inline: 10px;
+            background-color: darkgray;
+            border-radius: 10px;
+        }
+    </style>
+    <script src="https://www.chess-poster.com/english/lt_pgn_to_fen/ltpgnviewer.js"></script>
+</head>
+<body>
+    <div class="board">
+        <div class="item"></div>
+
+        <div class="container">
+            <div>
+                <label style="height: 50px;" for="pgn">pgn:</label> <!--pgn 입력부분 -->
+                <input style="width: 200px; height: 50px;" type="textarea" id="pgn" name="pgn">
+                <label style="height: 50px;" for="depth">depth:</label> <!--depth 입력부분 -->
+                <input style="width: 100px; height: 50px;" type="number" id="depth" name="depth" value="15">
+                <button id="requestButton2">실행</button>
+            </div>
+
+            <div>
+                <iframe width="400" height="400" scrolling="no" id="frame" src=""></iframe>
+            </div>
+            
+            <div>
+                <button name="backward" onclick="moveBackward()"> <- </button>
+                <button name="forward" onclick="moveForward()"> -> </button>
+            </div>
+            <audio id="myAudio" src="http://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-self.mp3"></audio>
+        </div>
+
+        <div class="item">
+            <span id="response"></span>
+        </div>
+    </div>
+
+    <script>
+        var fenindex = 0;
+        var fenlist = [];
+
+        function pgn2fen() {
+            Init("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+            SetPgnMoveText(document.getElementById('pgn').value);
+            var ff = [], ff_new = "", ff_old;
+            do {
+                ff_old = ff_new;
+                MoveForward(1);
+                ff_new = GetFEN();
+                if (ff_old != ff_new) ff.push(ff_new);
+            } while (ff_old != ff_new);
+            fenlist = ff;
+        }
+
+        document.getElementById("requestButton2").addEventListener("click", function() {
+            fenindex = 0;
+            pgn2fen();
+            console.log(fenlist);
+            showmove(fenindex);
+        });
+
+        function showmove(ind) {
+            const fen = fenlist[ind];
+            var depth = document.getElementById("depth").value; // 사용자가 입력한 depth 값
+            document.getElementById("frame").src = "https://stockfish.online/fenhelper/fenembed.html?" + fen;
+            const audioElement = document.getElementById("myAudio");
+            audioElement.play();
+            document.getElementById("response").innerHTML = '...';
+            fetch(`https://stockfish.online/api/s/v2.php?fen=${fen}&depth=${depth}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('네트워크 응답이 원활하지 않습니다 ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data);
+                    document.getElementById("response").innerHTML = ('백 ' + JSON.stringify(data["evaluation"], null, 2) + ' 폰 업<br>' + data["bestmove"]).replace('\n','<br>');
+                })
+                .catch(error => {
+                    console.error('Fetch 작업에 문제가 발생했습니다:', error);
+                });
+        }
+
+        function moveBackward() {
+            if (fenindex > 0) {
+                fenindex -= 1;
+                showmove(fenindex);
+            }
+        }
+
+        function moveForward() {
+            if (fenindex < fenlist.length - 1) {
+                fenindex += 1;
+                showmove(fenindex);
+            }
+        }
+    </script>
+</body>
+</html>
