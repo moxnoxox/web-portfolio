@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fetch API 예제</title>
+    <title>체스 기보 분석</title>
     <style>
         .tryItItem {
             vertical-align: top;
@@ -52,11 +52,13 @@
 
         <div class="container">
             <div>
-                <label style="height: 50px;" for="pgn">pgn:</label> <!--pgn 입력부분 -->
-                <input style="width: 200px; height: 50px;" type="textarea" id="pgn" name="pgn">
-                <label style="height: 50px;" for="depth">depth:</label> <!--depth 입력부분 -->
+                <label style="height: 50px;" for="pgn">pgn:</label>
+                <!-- 기본 안내 문구가 표시되도록 설정 -->
+                <input style="width: 200px; height: 50px;" type="text" id="pgn" name="pgn" placeholder="PGN을 입력하세요.">
+                <label style="height: 50px;" for="depth">depth:</label>
                 <input style="width: 100px; height: 50px;" type="number" id="depth" name="depth" value="15">
                 <button id="requestButton2">실행</button>
+                <p id="errorMessage" style="color:red; display:none;">PGN을 입력해 주세요!</p> <!-- 경고 메시지 -->
             </div>
 
             <div>
@@ -80,8 +82,16 @@
         var fenlist = [];
 
         function pgn2fen() {
+            var pgnInput = document.getElementById('pgn').value.trim();
+            if (pgnInput === "") {
+                document.getElementById("errorMessage").style.display = "block";  // 경고 메시지 표시
+                return;  // PGN이 비어 있으면 함수 종료
+            } else {
+                document.getElementById("errorMessage").style.display = "none";   // 경고 메시지 숨김
+            }
+
             Init("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-            SetPgnMoveText(document.getElementById('pgn').value);
+            SetPgnMoveText(pgnInput);
             var ff = [], ff_new = "", ff_old;
             do {
                 ff_old = ff_new;
@@ -95,16 +105,23 @@
         document.getElementById("requestButton2").addEventListener("click", function() {
             fenindex = 0;
             pgn2fen();
-            console.log(fenlist);
-            showmove(fenindex);
+            if (fenlist.length > 0) {
+                showmove(fenindex);
+            }
         });
 
         function showmove(ind) {
             const fen = fenlist[ind];
             var depth = document.getElementById("depth").value; // 사용자가 입력한 depth 값
             document.getElementById("frame").src = "https://stockfish.online/fenhelper/fenembed.html?" + fen;
+
             const audioElement = document.getElementById("myAudio");
+            if (!audioElement.paused) {
+                audioElement.pause();  // 중복 방지
+                audioElement.currentTime = 0;  // 사운드 초기화
+            }
             audioElement.play();
+
             document.getElementById("response").innerHTML = '...';
             fetch(`https://stockfish.online/api/s/v2.php?fen=${fen}&depth=${depth}`)
                 .then(response => {
@@ -119,6 +136,7 @@
                 })
                 .catch(error => {
                     console.error('Fetch 작업에 문제가 발생했습니다:', error);
+                    document.getElementById("response").innerHTML = '에러 발생: ' + error.message;
                 });
         }
 
